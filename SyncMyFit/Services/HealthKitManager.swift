@@ -11,7 +11,7 @@ import HealthKit
 // MARK: - HealthKitManager
 
 /// Manages authorization and write access to Apple HealthKit.
-/// Supports syncing steps, heart rate, sleep, and calories from Fitbit to Health.
+/// Supports syncing steps, heart rate, sleep, and calories from Google Health to Apple Health.
 class HealthKitManager {
     
     // MARK: - Singleton
@@ -52,7 +52,7 @@ class HealthKitManager {
     func writeSteps(_ steps: Int, date: Date = Date()) {
         guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else { return }
 
-        let metadata = ["SyncSource": "Fitbit"]
+        let metadata = ["SyncSource": "Google Health"]
 
         deleteExistingSamples(for: stepType, date: date, metadataKey: "SyncSource") {
             let quantity = HKQuantity(unit: HKUnit.count(), doubleValue: Double(steps))
@@ -68,11 +68,11 @@ class HealthKitManager {
 
     // MARK: - Write Heart Rate
     
-    /// Writes heart rate samples to HealthKit, one per value, tagged with Fitbit origin.
+    /// Writes heart rate samples to HealthKit, one per value, tagged with Google Health origin.
     func writeHeartRates(_ bpmValues: [Int], date: Date = Date()) {
         guard let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return }
 
-        let metadata = ["SyncSource": "Fitbit"]
+        let metadata = ["SyncSource": "Google Health"]
 
         deleteExistingSamples(for: hrType, date: date, metadataKey: "SyncSource") {
             for bpm in bpmValues {
@@ -98,7 +98,7 @@ class HealthKitManager {
         let end = date
         let start = end.addingTimeInterval(TimeInterval(-totalSeconds))
 
-        let metadata = ["SyncSource": "Fitbit"]
+        let metadata = ["SyncSource": "Google Health"]
 
         deleteExistingSamples(for: sleepType, date: date, metadataKey: "SyncSource") {
             let sample = HKCategorySample(
@@ -123,7 +123,7 @@ class HealthKitManager {
     func writeCalories(_ calories: Int, date: Date = Date()) {
         guard let calType = HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned) else { return }
 
-        let metadata = ["SyncSource": "Fitbit"]
+        let metadata = ["SyncSource": "Google Health"]
 
         deleteExistingSamples(for: calType, date: date, metadataKey: "SyncSource") {
             let quantity = HKQuantity(unit: HKUnit.kilocalorie(), doubleValue: Double(calories))
@@ -158,7 +158,7 @@ class HealthKitManager {
             limit: HKObjectQueryNoLimit,
             sortDescriptors: nil
         ) { _, results, error in
-            let toDelete = results?.filter { $0.metadata?[metadataKey] as? String == "Fitbit" } ?? []
+            let toDelete = results?.filter { $0.metadata?[metadataKey] as? String == "Google Health" } ?? []
 
             self.healthStore.delete(toDelete) { success, error in
                 if let error = error {

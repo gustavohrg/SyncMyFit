@@ -195,7 +195,7 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ---
 
-### Phase 3: HealthKit Tagging Update
+### Phase 3: HealthKit Tagging Update ✅ DONE
 
 **Goal:** HealthKit samples tagged as "Google Health" instead of "Fitbit".
 
@@ -209,8 +209,13 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 | Step | Task | Done |
 |---|---|---|
-| 3.1 | Update `metadata["SyncSource"]` from `"Fitbit"` to `"Google Health"` in all write methods | [ ] |
-| 3.2 | Update `deleteExistingSamples()` filter to match new metadata value | [ ] |
+| 3.1 | Update `metadata["SyncSource"]` from `"Fitbit"` to `"Google Health"` in all write methods | [x] |
+| 3.2 | Update `deleteExistingSamples()` filter to match new metadata value | [x] |
+
+**Findings:**
+- Simple string replacement: 4 metadata dictionaries + 1 filter
+- Old "Fitbit" samples remain in HealthKit (user can delete manually if desired)
+- New samples will be tagged "Google Health" and deduped correctly
 
 **Exit criteria:** New samples tagged "Google Health". Old "Fitbit" samples left in place (user can delete manually if desired).
 
