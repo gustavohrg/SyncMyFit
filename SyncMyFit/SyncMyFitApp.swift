@@ -53,8 +53,8 @@ struct SyncMyFitApp: App {
                 appState.checkLoginState()
             }
             .onOpenURL { url in
-                // Handle redirect from Fitbit OAuth flow
-                FitbitAuthManager.shared.handleRedirectURL(url)
+                // Handle redirect from Google OAuth flow
+                GoogleHealthAuthManager.shared.handleRedirectURL(url)
             }
         }
     }

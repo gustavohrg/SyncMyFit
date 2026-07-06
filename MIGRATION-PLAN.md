@@ -86,7 +86,7 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ---
 
-### Phase 1: Auth Layer (Google OAuth)
+### Phase 1: Auth Layer (Google OAuth) ✅ DONE
 
 **Goal:** App logs in via Google instead of Fitbit. Token exchange and refresh work.
 
@@ -95,26 +95,31 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 | Action | File |
 |---|---|
 | Create | `Services/GoogleHealthAuthManager.swift` |
+| Create | `SyncMyFit/Secrets.swift` (gitignored) |
+| Create | `SyncMyFit/Secrets.plist` (gitignored) |
 | Modify | `States/AppState.swift` |
 | Modify | `Views/LoginView.swift` |
+| Modify | `Views/AccountView.swift` |
+| Modify | `Controllers/SyncController.swift` |
 | Modify | `SyncMyFitApp.swift` |
+| Modify | `SyncMyFit.xcodeproj/project.pbxproj` |
 | Delete | `Services/FitbitAuthManager.swift` |
 
 **Tasks:**
 
 | Step | Task | Done |
 |---|---|---|
-| 1.1 | Update `Secrets.plist` with `GoogleClientID` + `GoogleClientSecret` | [ ] |
-| 1.2 | Create `GoogleHealthAuthManager.swift` with Google OAuth flow | [ ] |
-| 1.3 | Implement `startLogin()` → `ASWebAuthenticationSession` to `accounts.google.com` | [ ] |
-| 1.4 | Implement `fetchAccessToken()` → POST to `oauth2.googleapis.com/token` | [ ] |
-| 1.5 | Implement `refreshAccessToken()` → POST to `oauth2.googleapis.com/token` | [ ] |
-| 1.6 | Implement `performAuthenticatedRequest()` with auto-refresh on 401 | [ ] |
-| 1.7 | Implement `isTokenValid()`, `logout()`, Keychain storage | [ ] |
-| 1.8 | Update `AppState.swift` → replace `FitbitAuthManager` refs | [ ] |
-| 1.9 | Update `LoginView.swift` → "Sign in with Google" | [ ] |
-| 1.10 | Update `SyncMyFitApp.swift` → Google OAuth redirect handler | [ ] |
-| 1.11 | Delete `FitbitAuthManager.swift` | [ ] |
+| 1.1 | Update `Secrets.plist` with `GoogleClientID` + `GoogleClientSecret` | [x] |
+| 1.2 | Create `GoogleHealthAuthManager.swift` with Google OAuth flow | [x] |
+| 1.3 | Implement `startLogin()` → `ASWebAuthenticationSession` to `accounts.google.com` | [x] |
+| 1.4 | Implement `fetchAccessToken()` → POST to `oauth2.googleapis.com/token` | [x] |
+| 1.5 | Implement `refreshAccessToken()` → POST to `oauth2.googleapis.com/token` | [x] |
+| 1.6 | Implement `performAuthenticatedRequest()` with auto-refresh on 401 | [x] |
+| 1.7 | Implement `isTokenValid()`, `logout()`, Keychain storage | [x] |
+| 1.8 | Update `AppState.swift` → replace `FitbitAuthManager` refs | [x] |
+| 1.9 | Update `LoginView.swift` → "Sign in with Google" | [x] |
+| 1.10 | Update `SyncMyFitApp.swift` → Google OAuth redirect handler | [x] |
+| 1.11 | Delete `FitbitAuthManager.swift` | [x] |
 
 **Key implementation details:**
 - Auth URL: `https://accounts.google.com/o/oauth2/v2/auth?client_id=...&redirect_uri=...&response_type=code&scope=...&access_type=offline`
@@ -123,6 +128,15 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 - Keychain keys: change from `fitbit_access_token` / `fitbit_refresh_token` to `google_access_token` / `google_refresh_token`
 
 **Exit criteria:** App launches, shows "Sign in with Google", completes OAuth, stores tokens. Dashboard can load (even if data fetch still hits Fitbit endpoints temporarily).
+
+**Findings:**
+- Google Health API `getProfile` only returns age + membership start date. Display name + avatar requires People API with `userinfo.profile` scope.
+- AccountView.swift now fetches profile from `people.googleapis.com/v1/people/me?personFields=names,photos`
+- Google OAuth requires `client_secret` (unlike Fitbit PKCE). For sideloaded app, this is acceptable.
+- Redirect URI format: reversed client ID `com.googleusercontent.apps.{client_id_encoded}`
+- Xcode project uses `PBXFileSystemSynchronizedRootGroup` (Xcode 16+) - files auto-added, no manual pbxproj edits needed for new files.
+- Had to remove explicit Secrets.swift/plist references from pbxproj to avoid duplicate build commands.
+- `SyncController.swift` updated to use `GoogleHealthAuthManager.shared` for authenticated requests (data endpoints still Fitbit - Phase 2 task).
 
 ---
 
@@ -230,24 +244,27 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ## File Summary
 
-### Create (3)
+### Create (5)
 
 | File | Phase | Purpose |
 |---|---|---|
 | `Services/GoogleHealthAuthManager.swift` | 1 | Google OAuth 2.0 auth + token management |
 | `Models/HealthDataPoint.swift` | 2 | Data model for API response |
 | `Services/GoogleHealthClient.swift` | 2 | Fetch health data from Google Health API |
+| `SyncMyFit/Secrets.swift` | 1 | Credentials loader (gitignored) |
+| `SyncMyFit/Secrets.plist` | 1 | Google OAuth credentials (gitignored) |
 
-### Modify (6)
+### Modify (7)
 
 | File | Phase | Change |
 |---|---|---|
 | `States/AppState.swift` | 1 | `FitbitAuthManager` → `GoogleHealthAuthManager` |
-| `Views/LoginView.swift` | 1 | "Sign in with Google" |
+| `Views/LoginView.swift` | 1 | "Sign in with Google" + Google-colored dots |
+| `Views/AccountView.swift` | 1 | Google People API profile fetch |
 | `SyncMyFitApp.swift` | 1 | Google OAuth redirect handler |
-| `Controllers/SyncController.swift` | 2 | Fitbit API calls → `GoogleHealthClient` |
+| `Controllers/SyncController.swift` | 1 | Auth manager swap (data endpoints Phase 2) |
 | `Services/HealthKitManager.swift` | 3 | Metadata tagging update |
-| `Views/AccountView.swift` | 4 | Google logout |
+| `SyncMyFit.xcodeproj/project.pbxproj` | 1 | Remove duplicate Secrets refs |
 
 ### Delete (1)
 

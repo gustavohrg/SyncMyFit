@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - AccountView
 
-/// Displays the user's Fitbit profile, last sync time, and logout option with confirmation and loading feedback.
+/// Displays the user's Google profile, last sync time, and logout option with confirmation and loading feedback.
 struct AccountView: View {
 
     // MARK: - Environment & State
@@ -177,23 +177,33 @@ struct AccountView: View {
 
     private func fetchUserDetails() {
         isLoading = true
-        let url = URL(string: "https://api.fitbit.com/1/user/-/profile.json")!
+        let url = URL(string: "https://people.googleapis.com/v1/people/me?personFields=names,photos")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             DispatchQueue.main.async {
                 self.isLoading = false
                 switch result {
                 case .success(let data):
-                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let user = json["user"] as? [String: Any] {
-                        self.userInfo = user
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        // Parse Google People API response
+                        if let names = json["names"] as? [[String: Any]],
+                           let primaryName = names.first(where: { ($0["metadata"] as? [String: Any])?["primary"] as? Bool == true })
+                            ?? names.first,
+                           let displayName = primaryName["displayName"] as? String {
+                            self.userInfo["displayName"] = displayName
+                        }
 
-                        if let avatarURLString = user["avatar150"] as? String,
-                           let url = URL(string: avatarURLString), !avatarURLString.contains("default") {
-                            self.profileImageURL = url
-                        } else {
-                            self.profileImageURL = nil
+                        if let photos = json["photos"] as? [[String: Any]],
+                           let primaryPhoto = photos.first(where: { ($0["metadata"] as? [String: Any])?["primary"] as? Bool == true })
+                            ?? photos.first,
+                           let photoURL = primaryPhoto["url"] as? String {
+                            self.profileImageURL = URL(string: photoURL)
+                        }
+
+                        // Use resourceName as fallback ID
+                        if let resourceName = json["resourceName"] as? String {
+                            self.userInfo["encodedId"] = resourceName
                         }
                     }
                 case .failure:

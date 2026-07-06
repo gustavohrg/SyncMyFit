@@ -25,7 +25,7 @@ class SyncController {
         let url = URL(string: "https://api.fitbit.com/1/user/-/profile.json")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             switch result {
             case .success(let data):
                 do {
@@ -53,7 +53,7 @@ class SyncController {
         let url = URL(string: "https://api.fitbit.com/1/user/-/activities/date/\(date).json")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             switch result {
             case .success(let data):
                 do {
@@ -81,7 +81,7 @@ class SyncController {
         let url = URL(string: "https://api.fitbit.com/1/user/-/activities/heart/date/\(date)/1d/1min.json")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             switch result {
             case .success(let data):
                 do {
@@ -111,7 +111,7 @@ class SyncController {
         let url = URL(string: "https://api.fitbit.com/1.2/user/-/sleep/date/\(date).json")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             switch result {
             case .success(let data):
                 do {
@@ -137,7 +137,7 @@ class SyncController {
         let url = URL(string: "https://api.fitbit.com/1/user/-/activities/date/\(date).json")!
         let request = URLRequest(url: url)
 
-        FitbitAuthManager.shared.performAuthenticatedRequest(request) { result in
+        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
             switch result {
             case .success(let data):
                 do {

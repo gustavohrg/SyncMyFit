@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - LoginView
 
 /// The initial view shown to the user.
-/// Displays branding and handles login via Fitbit OAuth.
+/// Displays branding and handles login via Google OAuth.
 struct LoginView: View {
     
     // MARK: - Environment & State
@@ -30,7 +30,7 @@ struct LoginView: View {
                 .font(.largeTitle)
                 .bold()
             
-            Text("Sync your Fitbit data with Apple Health")
+            Text("Sync your Google Health data with Apple Health")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.gray)
                 .padding(.horizontal)
@@ -38,7 +38,7 @@ struct LoginView: View {
             Button(action: {
                 startLoginFlow()
             }) {
-                Text("Sign in with Fitbit")
+                Text("Sign in with Google")
                     .padding()
                     .frame(maxWidth: .infinity)
                     .background(Color.syncPrimary)
@@ -57,7 +57,7 @@ struct LoginView: View {
 
     // MARK: - Logo View
 
-    /// Displays combined Fitbit-style dots and Apple Health heart icon.
+    /// Displays combined Google-colored dots and Apple Health heart icon.
     private var logoView: some View {
         ZStack {
             // Apple Health-style heart
@@ -76,50 +76,49 @@ struct LoginView: View {
                     )
                 )
 
-            // Fitbit-style rhombus pattern of dots
+            // Google-colored rhombus pattern of dots
             Group {
                 // Row 1
-                dot(x: 0, y: -18)
+                dot(x: 0, y: -18, color: .blue)
 
                 // Row 2
-                dot(x: -6, y: -12)
-                dot(x: 6, y: -12)
+                dot(x: -6, y: -12, color: .red)
+                dot(x: 6, y: -12, color: .yellow)
 
                 // Row 3
-                dot(x: -12, y: -6)
-                dot(x: 0, y: -6)
-                dot(x: 12, y: -6)
+                dot(x: -12, y: -6, color: .green)
+                dot(x: 0, y: -6, color: .blue)
+                dot(x: 12, y: -6, color: .red)
 
                 // Row 4
-                dot(x: -18, y: 0)
-                dot(x: -6, y: 0)
-                dot(x: 6, y: 0)
-                dot(x: 18, y: 0)
+                dot(x: -18, y: 0, color: .yellow)
+                dot(x: -6, y: 0, color: .green)
+                dot(x: 6, y: 0, color: .blue)
+                dot(x: 18, y: 0, color: .red)
 
                 // Row 5
-                dot(x: -12, y: 6)
-                dot(x: 0, y: 6)
-                dot(x: 12, y: 6)
+                dot(x: -12, y: 6, color: .yellow)
+                dot(x: 0, y: 6, color: .green)
+                dot(x: 12, y: 6, color: .blue)
 
                 // Row 6
-                dot(x: -6, y: 12)
-                dot(x: 6, y: 12)
+                dot(x: -6, y: 12, color: .red)
+                dot(x: 6, y: 12, color: .yellow)
 
                 // Row 7
-                dot(x: 0, y: 18)
+                dot(x: 0, y: 18, color: .green)
             }
-            .foregroundStyle(Color.syncPrimary)
         }
     }
 
-    // MARK: - Fitbit Login Flow
+    // MARK: - Google Login Flow
 
-    /// Initiates the login process using Fitbit OAuth and updates app state on success.
+    /// Initiates the login process using Google OAuth and updates app state on success.
     private func startLoginFlow() {
-        FitbitAuthManager.shared.startLogin { result in
+        GoogleHealthAuthManager.shared.startLogin { result in
             switch result {
             case .success(let code):
-                FitbitAuthManager.shared.fetchAccessToken(authCode: code) { tokenResult in
+                GoogleHealthAuthManager.shared.fetchAccessToken(authCode: code) { tokenResult in
                     switch tokenResult {
                     case .success:
                         DispatchQueue.main.async {
@@ -143,13 +142,14 @@ struct LoginView: View {
 
     // MARK: - Dot Helper
 
-    /// Builds a rotated square used to mimic Fitbit-style dot.
+    /// Builds a rotated square used to mimic Google-colored dot.
     @ViewBuilder
-    private func dot(x: CGFloat, y: CGFloat) -> some View {
+    private func dot(x: CGFloat, y: CGFloat, color: Color) -> some View {
         RoundedRectangle(cornerRadius: 2)
             .frame(width: 5, height: 5)
             .rotationEffect(.degrees(45))
             .offset(x: x, y: y)
+            .foregroundStyle(color)
     }
 }
 

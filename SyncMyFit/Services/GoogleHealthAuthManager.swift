@@ -1,30 +1,40 @@
 //
-//  FitbitAuthManager.swift
+//  GoogleHealthAuthManager.swift
 //  SyncMyFit
 //
-//  Created by Baranidharan Pasupathi on 2025-06-30.
+//  Created on migration from Fitbit Web API to Google Health API.
 //
 
 import Foundation
 import AuthenticationServices
-import CryptoKit
 import UIKit
 
-// MARK: - FitbitAuthManager
+// MARK: - GoogleHealthAuthManager
 
-/// Manages OAuth authentication with Fitbit using PKCE, token exchange, refresh, and secure token storage.
-class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProviding {
-    
+/// Manages OAuth authentication with Google Health API using OAuth 2.0.
+/// Handles authorization, token exchange, refresh, and secure token storage.
+class GoogleHealthAuthManager: NSObject, ASWebAuthenticationPresentationContextProviding {
+
     // MARK: - Singleton
 
-    static let shared = FitbitAuthManager()
+    static let shared = GoogleHealthAuthManager()
 
     // MARK: - Properties
 
-    private let clientId = Secrets.shared.fitbitClientID
-    private let redirectURI = "syncmyfit://auth"
+    private let clientId = Secrets.shared.googleClientID
+    private let clientSecret = Secrets.shared.googleClientSecret
     private var currentSession: ASWebAuthenticationSession?
-    private var codeVerifier: String = ""
+
+    /// Redirect URI uses reversed client ID format (Google standard for iOS).
+    private var redirectURI: String {
+        "com.googleusercontent.apps.\(clientId.replacingOccurrences(of: ".", with: "-"))://"
+    }
+
+    /// OAuth scopes: health data + profile (display name + avatar via People API).
+    private let scopes = [
+        "https://www.googleapis.com/auth/googlehealth.activity_and_fitness",
+        "https://www.googleapis.com/auth/userinfo.profile"
+    ].joined(separator: " ")
 
     /// Exposes the stored access token publicly (read-only).
     var accessToken: String? {
@@ -33,19 +43,26 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     // MARK: - OAuth Login Flow
 
-    /// Initiates Fitbit OAuth flow using PKCE.
+    /// Initiates Google OAuth flow using ASWebAuthenticationSession.
     func startLogin(completion: @escaping (Result<String, Error>) -> Void) {
-        codeVerifier = generateCodeVerifier()
-        let codeChallenge = generateCodeChallenge(from: codeVerifier)
-        let scope = "activity heartrate profile sleep"
+        var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
+        components.queryItems = [
+            URLQueryItem(name: "client_id", value: clientId),
+            URLQueryItem(name: "redirect_uri", value: redirectURI),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "scope", value: scopes),
+            URLQueryItem(name: "access_type", value: "offline"),
+            URLQueryItem(name: "prompt", value: "consent")
+        ]
 
-        let authURL = URL(string:
-            "https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=\(clientId)&code_challenge=\(codeChallenge)&code_challenge_method=S256&redirect_uri=\(redirectURI)&scope=\(scope)&expires_in=604800"
-        )!
+        guard let authURL = components.url else {
+            completion(.failure(NSError(domain: "GoogleAuth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid auth URL"])))
+            return
+        }
 
         currentSession = ASWebAuthenticationSession(
             url: authURL,
-            callbackURLScheme: "syncmyfit"
+            callbackURLScheme: "com.googleusercontent.apps"
         ) { callbackURL, error in
             if let error = error {
                 completion(.failure(error))
@@ -54,7 +71,7 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
             guard let callbackURL = callbackURL,
                   let code = self.extractCode(from: callbackURL) else {
-                completion(.failure(NSError(domain: "FitbitAuth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to get code"])))
+                completion(.failure(NSError(domain: "GoogleAuth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to get authorization code"])))
                 return
             }
 
@@ -68,9 +85,9 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     // MARK: - Token Exchange
 
-    /// Exchanges the authorization code for an access token and stores it securely.
+    /// Exchanges the authorization code for access and refresh tokens.
     func fetchAccessToken(authCode: String, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let url = URL(string: "https://api.fitbit.com/oauth2/token") else { return }
+        guard let url = URL(string: "https://oauth2.googleapis.com/token") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -78,10 +95,10 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
         let bodyParams = [
             "client_id": clientId,
-            "grant_type": "authorization_code",
-            "redirect_uri": redirectURI,
+            "client_secret": clientSecret,
             "code": authCode,
-            "code_verifier": codeVerifier
+            "grant_type": "authorization_code",
+            "redirect_uri": redirectURI
         ]
 
         request.httpBody = bodyParams
@@ -110,13 +127,12 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
                     if let expiresIn = json?["expires_in"] as? Double {
                         let expiresAt = Date().addingTimeInterval(expiresIn)
-                        UserDefaults.standard.set(expiresAt, forKey: "fitbit_token_expires_at")
+                        UserDefaults.standard.set(expiresAt, forKey: "google_token_expires_at")
                     }
 
                     completion(.success(accessToken))
-                } else if let errors = json?["errors"] as? [[String: Any]] {
-                    print("Fitbit API Error: \(errors)")
-                    completion(.failure(NSError(domain: "Fitbit error", code: -2)))
+                } else if let errorDescription = json?["error_description"] as? String {
+                    completion(.failure(NSError(domain: "GoogleAuth", code: -2, userInfo: [NSLocalizedDescriptionKey: errorDescription])))
                 } else {
                     completion(.failure(NSError(domain: "Unexpected token response", code: -3)))
                 }
@@ -129,10 +145,10 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     // MARK: - Token Refresh
 
-    /// Refreshes the Fitbit access token using the stored refresh token.
+    /// Refreshes the Google access token using the stored refresh token.
     func refreshAccessToken(completion: @escaping (Result<String, Error>) -> Void) {
         guard let refreshToken = storedRefreshToken,
-              let url = URL(string: "https://api.fitbit.com/oauth2/token") else {
+              let url = URL(string: "https://oauth2.googleapis.com/token") else {
             return completion(.failure(NSError(domain: "Missing refresh token", code: -1)))
         }
 
@@ -141,9 +157,10 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
         let bodyParams = [
-            "grant_type": "refresh_token",
+            "client_id": clientId,
+            "client_secret": clientSecret,
             "refresh_token": refreshToken,
-            "client_id": clientId
+            "grant_type": "refresh_token"
         ]
 
         request.httpBody = bodyParams
@@ -166,19 +183,14 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
                 if let newAccessToken = json?["access_token"] as? String {
                     self.storedAccessToken = newAccessToken
 
-                    if let newRefreshToken = json?["refresh_token"] as? String {
-                        self.storedRefreshToken = newRefreshToken
-                    }
-
                     if let expiresIn = json?["expires_in"] as? Double {
                         let expiresAt = Date().addingTimeInterval(expiresIn)
-                        UserDefaults.standard.set(expiresAt, forKey: "fitbit_token_expires_at")
+                        UserDefaults.standard.set(expiresAt, forKey: "google_token_expires_at")
                     }
 
                     completion(.success(newAccessToken))
-                } else if let errors = json?["errors"] as? [[String: Any]] {
-                    print("Fitbit API Error: \(errors)")
-                    completion(.failure(NSError(domain: "Fitbit error", code: -2)))
+                } else if let errorDescription = json?["error_description"] as? String {
+                    completion(.failure(NSError(domain: "GoogleAuth", code: -2, userInfo: [NSLocalizedDescriptionKey: errorDescription])))
                 } else {
                     completion(.failure(NSError(domain: "Unexpected token response", code: -3)))
                 }
@@ -255,17 +267,7 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
             .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 
-    // MARK: - PKCE Utility
-
-    private func generateCodeVerifier() -> String {
-        let charset = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
-        return String((0..<128).compactMap { _ in charset.randomElement() })
-    }
-
-    private func generateCodeChallenge(from verifier: String) -> String {
-        let hashed = SHA256.hash(data: Data(verifier.utf8))
-        return Data(hashed).base64URLEncodedString()
-    }
+    // MARK: - Utility
 
     private func extractCode(from url: URL) -> String? {
         URLComponents(url: url, resolvingAgainstBaseURL: true)?
@@ -273,7 +275,7 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
     }
 
     func isTokenValid() -> Bool {
-        guard let expiresAt = UserDefaults.standard.object(forKey: "fitbit_token_expires_at") as? Date else {
+        guard let expiresAt = UserDefaults.standard.object(forKey: "google_token_expires_at") as? Date else {
             return false
         }
         return Date() < expiresAt
@@ -282,10 +284,10 @@ class FitbitAuthManager: NSObject, ASWebAuthenticationPresentationContextProvidi
 
 // MARK: - Keychain Accessors
 
-extension FitbitAuthManager {
-    private var accessTokenKey: String { "fitbit_access_token" }
-    private var refreshTokenKey: String { "fitbit_refresh_token" }
-    private var service: String { "com.syncmyfit.token" }
+extension GoogleHealthAuthManager {
+    private var accessTokenKey: String { "google_access_token" }
+    private var refreshTokenKey: String { "google_refresh_token" }
+    private var service: String { "com.syncmyfit.google_token" }
 
     var storedAccessToken: String? {
         get {
@@ -319,17 +321,6 @@ extension FitbitAuthManager {
     func logout() {
         storedAccessToken = nil
         storedRefreshToken = nil
-    }
-}
-
-// MARK: - Base64 URL Encoding
-
-extension Data {
-    /// Encodes data into base64 URL-safe format (used for PKCE challenge).
-    func base64URLEncodedString() -> String {
-        self.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        UserDefaults.standard.removeObject(forKey: "google_token_expires_at")
     }
 }

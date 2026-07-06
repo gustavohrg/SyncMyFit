@@ -28,13 +28,13 @@ class AppState: ObservableObject {
     func checkLoginState() {
         isCheckingAuth = true
 
-        if let _ = FitbitAuthManager.shared.storedAccessToken {
-            if FitbitAuthManager.shared.isTokenValid() {
+        if let _ = GoogleHealthAuthManager.shared.storedAccessToken {
+            if GoogleHealthAuthManager.shared.isTokenValid() {
                 isLoggedIn = true
                 isCheckingAuth = false
             } else {
                 // Attempt to refresh token if expired
-                FitbitAuthManager.shared.refreshAccessToken { result in
+                GoogleHealthAuthManager.shared.refreshAccessToken { result in
                     DispatchQueue.main.async {
                         switch result {
                         case .success:
@@ -56,7 +56,7 @@ class AppState: ObservableObject {
 
     /// Clears tokens and resets login state.
     func logout() {
-        FitbitAuthManager.shared.logout()
+        GoogleHealthAuthManager.shared.logout()
         isLoggedIn = false
     }
 
