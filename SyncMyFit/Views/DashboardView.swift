@@ -232,10 +232,8 @@ struct DashboardView: View {
 
         group.enter()
         SyncController.shared.fetchSleepData {
-            if case let .success(json) = $0,
-               let summary = json["summary"] as? [String: Any],
-               let minutes = summary["totalMinutesAsleep"] as? Double {
-                self.sleepHours = minutes / 60.0
+            if case let .success(hours) = $0 {
+                self.sleepHours = hours
             }
             group.leave()
         }

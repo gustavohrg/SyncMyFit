@@ -140,7 +140,7 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ---
 
-### Phase 2: Data Layer (Google Health API Client)
+### Phase 2: Data Layer (Google Health API Client) ✅ DONE
 
 **Goal:** Fetch health data from Google Health API instead of Fitbit API.
 
@@ -151,19 +151,38 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 | Create | `Models/HealthDataPoint.swift` |
 | Create | `Services/GoogleHealthClient.swift` |
 | Modify | `Controllers/SyncController.swift` |
+| Modify | `Views/DashboardView.swift` |
 
 **Tasks:**
 
 | Step | Task | Done |
 |---|---|---|
-| 2.1 | Create `HealthDataPoint.swift` data model | [ ] |
-| 2.2 | Create `GoogleHealthClient.swift` | [ ] |
-| 2.3 | Implement `fetchSteps(since:to:)` → `GET /v4/users/me/dataTypes/steps/dataPoints` | [ ] |
-| 2.4 | Implement `fetchHeartRate(since:to:)` → `GET /v4/users/me/dataTypes/heart_rate/dataPoints` | [ ] |
-| 2.5 | Implement `fetchSleep(since:to:)` → `GET /v4/users/me/dataTypes/sleep_session/dataPoints` | [ ] |
-| 2.6 | Implement `fetchCalories(since:to:)` → `GET /v4/users/me/dataTypes/total_calories/dataPoints` | [ ] |
-| 2.7 | Implement `fetchProfile()` → `GET /v4/users/me/profile` | [ ] |
-| 2.8 | Update `SyncController.swift` → replace Fitbit fetch calls with `GoogleHealthClient` | [ ] |
+| 2.1 | Create `HealthDataPoint.swift` data model | [x] |
+| 2.2 | Create `GoogleHealthClient.swift` | [x] |
+| 2.3 | Implement `fetchSteps(since:to:)` → `GET /v4/users/me/dataTypes/steps/dataPoints` | [x] |
+| 2.4 | Implement `fetchHeartRate(since:to:)` → `GET /v4/users/me/dataTypes/heart-rate/dataPoints` | [x] |
+| 2.5 | Implement `fetchSleep(since:to:)` → `GET /v4/users/me/dataTypes/sleep/dataPoints` | [x] |
+| 2.6 | Implement `fetchCalories(since:to:)` → `GET /v4/users/me/dataTypes/active-energy-burned/dataPoints` | [x] |
+| 2.7 | Implement `fetchProfile()` → `GET /v1/people/me?personFields=names` | [x] |
+| 2.8 | Update `SyncController.swift` → replace Fitbit fetch calls with `GoogleHealthClient` | [x] |
+
+**Key implementation details:**
+- Base URL: `https://health.googleapis.com/v4`
+- Auth header: `Bearer {access_token}`
+- Query params: `startTime` (ISO 8601), `endTime` (ISO 8601)
+- Response: `{ "dataPoints": [{ "startTime": "...", "endTime": "...", "value": ... }] }`
+- Uses `GoogleHealthAuthManager.shared.performAuthenticatedRequest()` for all calls
+- Sleep data type is `sleep` (not `sleep_session`)
+- Calories data type is `active-energy-burned` (not `total-calories`)
+- `HealthDataPoint` has helper extensions: `stepsValue`, `heartRateBPM`, `sleepHours`, `caloriesValue`
+- Fallback raw JSON parser included for when Codable decoding fails
+
+**Findings:**
+- Google Health API sleep data type is `sleep` (Session type), not `sleep_session`
+- Calories: `active-energy-burned` for active calories, `total-calories` for read-only derived total
+- `fetchSleepData` return type changed from `Result<[String: Any], Error>` to `Result<Double, Error>` (simpler)
+- DashboardView.swift needed update at line 234 to match new sleep return type
+- All Fitbit API URLs removed from codebase
 
 **Key implementation details:**
 - Base URL: `https://health.googleapis.com`
@@ -172,7 +191,7 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 - Response: `{ "dataPoints": [{ "startTime": "...", "endTime": "...", "value": ... }] }`
 - Use `GoogleHealthAuthManager.shared.performAuthenticatedRequest()` for all calls
 
-**Exit criteria:** Sync button fetches real data from Google Health API and displays on dashboard.
+**Exit criteria:** Sync button fetches real data from Google Health API and displays on dashboard. Build succeeds.
 
 ---
 
@@ -249,12 +268,12 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 | File | Phase | Purpose |
 |---|---|---|
 | `Services/GoogleHealthAuthManager.swift` | 1 | Google OAuth 2.0 auth + token management |
-| `Models/HealthDataPoint.swift` | 2 | Data model for API response |
+| `Models/HealthDataPoint.swift` | 2 | Data model for Google Health API response |
 | `Services/GoogleHealthClient.swift` | 2 | Fetch health data from Google Health API |
 | `SyncMyFit/Secrets.swift` | 1 | Credentials loader (gitignored) |
 | `SyncMyFit/Secrets.plist` | 1 | Google OAuth credentials (gitignored) |
 
-### Modify (7)
+### Modify (8)
 
 | File | Phase | Change |
 |---|---|---|
@@ -262,7 +281,8 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 | `Views/LoginView.swift` | 1 | "Sign in with Google" + Google-colored dots |
 | `Views/AccountView.swift` | 1 | Google People API profile fetch |
 | `SyncMyFitApp.swift` | 1 | Google OAuth redirect handler |
-| `Controllers/SyncController.swift` | 1 | Auth manager swap (data endpoints Phase 2) |
+| `Controllers/SyncController.swift` | 2 | Fitbit API → `GoogleHealthClient` |
+| `Views/DashboardView.swift` | 2 | Updated sleep return type |
 | `Services/HealthKitManager.swift` | 3 | Metadata tagging update |
 | `SyncMyFit.xcodeproj/project.pbxproj` | 1 | Remove duplicate Secrets refs |
 

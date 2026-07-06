@@ -2,159 +2,57 @@
 //  SyncController.swift
 //  SyncMyFit
 //
-//  Created by Baranidharan Pasupathi on 2025-06-30.
+//  Handles fetching health data from Google Health API and writing to Apple HealthKit.
+//  Supports steps, heart rate, sleep, and calorie sync operations.
 //
 
 import Foundation
 
 // MARK: - SyncController
 
-/// Handles the fetching of Fitbit data and writing to Apple HealthKit.
-/// Supports steps, heart rate, sleep, and calorie sync operations.
+/// Handles the fetching of health data from Google Health API and writing to Apple HealthKit.
 class SyncController {
-    
+
     // MARK: - Singleton
-    
+
     /// Shared instance for centralized sync handling.
     static let shared = SyncController()
 
-    // MARK: - User Profile
-    
-    /// Fetches the Fitbit user profile to retrieve display name.
-    func fetchUserProfile(completion: @escaping (Result<String, Error>) -> Void) {
-        let url = URL(string: "https://api.fitbit.com/1/user/-/profile.json")!
-        let request = URLRequest(url: url)
+    private let client = GoogleHealthClient.shared
 
-        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let user = json["user"] as? [String: Any],
-                       let name = user["displayName"] as? String {
-                        completion(.success(name))
-                    } else {
-                        completion(.failure(NSError(domain: "Unexpected response", code: -2)))
-                    }
-                } catch {
-                    completion(.failure(error))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+    // MARK: - User Profile
+
+    /// Fetches the user's display name from Google People API.
+    func fetchUserProfile(completion: @escaping (Result<String, Error>) -> Void) {
+        client.fetchProfile(completion: completion)
     }
 
     // MARK: - Step Sync
-    
-    /// Fetches today's step count from Fitbit.
-    func fetchTodaySteps(completion: @escaping (Result<Int, Error>) -> Void) {
-        let date = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let url = URL(string: "https://api.fitbit.com/1/user/-/activities/date/\(date).json")!
-        let request = URLRequest(url: url)
 
-        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let summary = json["summary"] as? [String: Any],
-                       let steps = summary["steps"] as? Int {
-                        completion(.success(steps))
-                    } else {
-                        completion(.failure(NSError(domain: "Unexpected response", code: -2)))
-                    }
-                } catch {
-                    completion(.failure(error))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+    /// Fetches today's step count from Google Health API.
+    func fetchTodaySteps(completion: @escaping (Result<Int, Error>) -> Void) {
+        client.fetchTodaySteps(completion: completion)
     }
 
     // MARK: - Heart Rate Sync
 
-    /// Fetches today's minute-level heart rate data from Fitbit.
+    /// Fetches today's heart rate data from Google Health API.
     func fetchHeartRateData(completion: @escaping (Result<[Int], Error>) -> Void) {
-        let date = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let url = URL(string: "https://api.fitbit.com/1/user/-/activities/heart/date/\(date)/1d/1min.json")!
-        let request = URLRequest(url: url)
-
-        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let activities = json["activities-heart-intraday"] as? [String: Any],
-                       let dataset = activities["dataset"] as? [[String: Any]] {
-
-                        let values = dataset.compactMap { $0["value"] as? Int }
-                        completion(.success(values))
-                    } else {
-                        completion(.failure(NSError(domain: "Unexpected HR response", code: -2)))
-                    }
-                } catch {
-                    completion(.failure(error))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+        client.fetchTodayHeartRate(completion: completion)
     }
 
     // MARK: - Sleep Sync
 
-    /// Fetches sleep data for the current date from Fitbit.
-    func fetchSleepData(completion: @escaping (Result<[String: Any], Error>) -> Void) {
-        let date = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let url = URL(string: "https://api.fitbit.com/1.2/user/-/sleep/date/\(date).json")!
-        let request = URLRequest(url: url)
-
-        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        completion(.success(json))
-                    } else {
-                        completion(.failure(NSError(domain: "Unexpected sleep response", code: -2)))
-                    }
-                } catch {
-                    completion(.failure(error))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+    /// Fetches today's sleep data from Google Health API.
+    func fetchSleepData(completion: @escaping (Result<Double, Error>) -> Void) {
+        client.fetchTodaySleep(completion: completion)
     }
 
     // MARK: - Calories Sync
 
-    /// Fetches calories burned for the current date from Fitbit.
+    /// Fetches today's calories burned from Google Health API.
     func fetchCalories(completion: @escaping (Result<Int, Error>) -> Void) {
-        let date = ISO8601DateFormatter().string(from: Date()).prefix(10)
-        let url = URL(string: "https://api.fitbit.com/1/user/-/activities/date/\(date).json")!
-        let request = URLRequest(url: url)
-
-        GoogleHealthAuthManager.shared.performAuthenticatedRequest(request) { result in
-            switch result {
-            case .success(let data):
-                do {
-                    if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let summary = json["summary"] as? [String: Any],
-                       let calories = summary["caloriesOut"] as? Int {
-                        completion(.success(calories))
-                    } else {
-                        completion(.failure(NSError(domain: "Unexpected calories response", code: -2)))
-                    }
-                } catch {
-                    completion(.failure(error))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
+        client.fetchTodayCalories(completion: completion)
     }
 
     // MARK: - HealthKit Writing
@@ -175,7 +73,7 @@ class SyncController {
 
     // MARK: - Bulk Sync Orchestration
 
-    /// Coordinates the full sync of all health data types from Fitbit to HealthKit.
+    /// Coordinates the full sync of all health data types from Google Health to HealthKit.
     func syncAllData(completion: @escaping (Result<Void, Error>) -> Void) {
         let group = DispatchGroup()
         var syncError: Error?
@@ -201,14 +99,8 @@ class SyncController {
 
         group.enter()
         fetchSleepData {
-            if case .success(let json) = $0,
-               let sleepArray = json["sleep"] as? [[String: Any]],
-               let summary = sleepArray.first,
-               let duration = summary["duration"] as? Double {
-                sleepHours = duration / 3600000.0  // Fitbit returns duration in ms
-            } else if case .failure(let err) = $0 {
-                syncError = err
-            }
+            if case .success(let val) = $0 { sleepHours = val }
+            else if case .failure(let err) = $0 { syncError = err }
             group.leave()
         }
 
