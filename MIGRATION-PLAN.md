@@ -66,142 +66,202 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ---
 
-## Prerequisites
+## Phased Implementation
 
-### 1. Google Cloud Setup
+### Phase 0: Prerequisites (Manual Setup)
 
-1. Create Google Cloud project (or use existing)
-2. Enable **Google Health API** in API Library
-3. Create OAuth 2.0 Client ID:
-   - Type: **Web Server**
-   - Redirect URI: `https://www.google.com` (Google's default)
-4. Copy **Client ID** and **Client Secret**
-5. Add test user email in Audience page
+**Goal:** Google Cloud project ready, credentials in hand. No code changes.
 
-### 2. Secrets.plist Updates
+| Step | Task | Done |
+|---|---|---|
+| 0.1 | Create Google Cloud project (or use existing) | [ ] |
+| 0.2 | Enable **Google Health API** in API Library | [ ] |
+| 0.3 | Create OAuth 2.0 Client ID (type: Web Server) | [ ] |
+| 0.4 | Set redirect URI to `https://www.google.com` | [ ] |
+| 0.5 | Copy Client ID + Client Secret | [ ] |
+| 0.6 | Add test user email in Audience page | [ ] |
+| 0.7 | Add scopes: `googlehealth.activity_and_fitness` | [ ] |
 
-Remove Fitbit keys, add Google keys:
-```xml
-<key>GoogleClientID</key>
-<string>YOUR_GOOGLE_CLIENT_ID</string>
-<key>GoogleClientSecret</key>
-<string>YOUR_GOOGLE_CLIENT_SECRET</string>
-```
-
-### 3. Xcode Project Config
-
-- Add URL scheme for Google OAuth callback (or keep `syncmyfit://`)
-- Update `Info.plist` with `CFBundleURLTypes` if using Google Sign-In SDK
-- Consider adding `GoogleSignIn` SPM package for native Google sign-in UI
+**Exit criteria:** You have a valid `client_id` and `client_secret` from Google Console.
 
 ---
 
-## Implementation Steps
+### Phase 1: Auth Layer (Google OAuth)
 
-### Step 1: Create `GoogleHealthAuthManager.swift`
+**Goal:** App logs in via Google instead of Fitbit. Token exchange and refresh work.
 
-**New file.** Replace `FitbitAuthManager.swift`.
+**Files:**
 
-Responsibilities:
-- Launch Google OAuth in `ASWebAuthenticationSession`
-- Exchange auth code for tokens at `oauth2.googleapis.com/token`
-- Refresh tokens at same endpoint
-- Store tokens in Keychain via `KeychainHelper`
-- Auto-refresh on 401
-- Validate token expiry
-
-Key differences from FitbitAuthManager:
-- Requires `client_secret` in token exchange (Fitbit used PKCE only)
-- Different auth URL structure (`accounts.google.com/o/oauth2/v2/auth`)
-- Different scope format (full URL vs space-separated words)
-- No PKCE needed (client_secret provides proof)
-
-### Step 2: Create `HealthDataPoint.swift`
-
-**New file.** Data model for Google Health API response.
-
-```swift
-struct HealthDataPoint: Codable {
-    let startTime: String
-    let endTime: String
-    let value: Double
-}
-
-struct HealthDataResponse: Codable {
-    let dataPoints: [HealthDataPoint]
-}
-```
-
-### Step 3: Create `GoogleHealthClient.swift`
-
-**New file.** Replace fetch methods in `SyncController.swift`.
-
-Methods:
-- `fetchSteps(since: Date, to: Date)` → `[HealthDataPoint]`
-- `fetchHeartRate(since: Date, to: Date)` → `[HealthDataPoint]`
-- `fetchSleep(since: Date, to: Date)` → `[HealthDataPoint]`
-- `fetchCalories(since: Date, to: Date)` → `[HealthDataPoint]`
-- `fetchProfile()` → `String` (display name)
-
-All use `GoogleHealthAuthManager.shared.performAuthenticatedRequest()`.
-
-### Step 4: Update `SyncController.swift`
-
-Replace Fitbit API calls with `GoogleHealthClient` calls. Keep orchestration logic. Update parsing to use `HealthDataPoint` models.
-
-### Step 5: Update `AppState.swift`
-
-Replace all `FitbitAuthManager.shared` references with `GoogleHealthAuthManager.shared`.
-
-### Step 6: Update Views
-
-| File | Change |
+| Action | File |
 |---|---|
-| `LoginView.swift` | Button text: "Sign in with Google". Call `GoogleHealthAuthManager` |
-| `DashboardView.swift` | Use `GoogleHealthClient` in `loadData()` |
-| `AccountView.swift` | Logout calls `GoogleHealthAuthManager.shared.logout()` |
-| `SyncMyFitApp.swift` | Replace `.onOpenURL` handler with Google OAuth callback |
+| Create | `Services/GoogleHealthAuthManager.swift` |
+| Modify | `States/AppState.swift` |
+| Modify | `Views/LoginView.swift` |
+| Modify | `SyncMyFitApp.swift` |
+| Delete | `Services/FitbitAuthManager.swift` |
 
-### Step 7: Update `HealthKitManager.swift`
+**Tasks:**
 
-Minimal change: update `metadata["SyncSource"]` from `"Fitbit"` to `"Google Health"` (or `"SyncMyFit"`). Update delete filter in `deleteExistingSamples()` to match new metadata value.
+| Step | Task | Done |
+|---|---|---|
+| 1.1 | Update `Secrets.plist` with `GoogleClientID` + `GoogleClientSecret` | [ ] |
+| 1.2 | Create `GoogleHealthAuthManager.swift` with Google OAuth flow | [ ] |
+| 1.3 | Implement `startLogin()` → `ASWebAuthenticationSession` to `accounts.google.com` | [ ] |
+| 1.4 | Implement `fetchAccessToken()` → POST to `oauth2.googleapis.com/token` | [ ] |
+| 1.5 | Implement `refreshAccessToken()` → POST to `oauth2.googleapis.com/token` | [ ] |
+| 1.6 | Implement `performAuthenticatedRequest()` with auto-refresh on 401 | [ ] |
+| 1.7 | Implement `isTokenValid()`, `logout()`, Keychain storage | [ ] |
+| 1.8 | Update `AppState.swift` → replace `FitbitAuthManager` refs | [ ] |
+| 1.9 | Update `LoginView.swift` → "Sign in with Google" | [ ] |
+| 1.10 | Update `SyncMyFitApp.swift` → Google OAuth redirect handler | [ ] |
+| 1.11 | Delete `FitbitAuthManager.swift` | [ ] |
+
+**Key implementation details:**
+- Auth URL: `https://accounts.google.com/o/oauth2/v2/auth?client_id=...&redirect_uri=...&response_type=code&scope=...&access_type=offline`
+- Token exchange needs `client_secret` (not just PKCE like Fitbit)
+- No PKCE required (client_secret provides proof)
+- Keychain keys: change from `fitbit_access_token` / `fitbit_refresh_token` to `google_access_token` / `google_refresh_token`
+
+**Exit criteria:** App launches, shows "Sign in with Google", completes OAuth, stores tokens. Dashboard can load (even if data fetch still hits Fitbit endpoints temporarily).
 
 ---
 
-## Files Summary
+### Phase 2: Data Layer (Google Health API Client)
+
+**Goal:** Fetch health data from Google Health API instead of Fitbit API.
+
+**Files:**
+
+| Action | File |
+|---|---|
+| Create | `Models/HealthDataPoint.swift` |
+| Create | `Services/GoogleHealthClient.swift` |
+| Modify | `Controllers/SyncController.swift` |
+
+**Tasks:**
+
+| Step | Task | Done |
+|---|---|---|
+| 2.1 | Create `HealthDataPoint.swift` data model | [ ] |
+| 2.2 | Create `GoogleHealthClient.swift` | [ ] |
+| 2.3 | Implement `fetchSteps(since:to:)` → `GET /v4/users/me/dataTypes/steps/dataPoints` | [ ] |
+| 2.4 | Implement `fetchHeartRate(since:to:)` → `GET /v4/users/me/dataTypes/heart_rate/dataPoints` | [ ] |
+| 2.5 | Implement `fetchSleep(since:to:)` → `GET /v4/users/me/dataTypes/sleep_session/dataPoints` | [ ] |
+| 2.6 | Implement `fetchCalories(since:to:)` → `GET /v4/users/me/dataTypes/total_calories/dataPoints` | [ ] |
+| 2.7 | Implement `fetchProfile()` → `GET /v4/users/me/profile` | [ ] |
+| 2.8 | Update `SyncController.swift` → replace Fitbit fetch calls with `GoogleHealthClient` | [ ] |
+
+**Key implementation details:**
+- Base URL: `https://health.googleapis.com`
+- Auth header: `Bearer {access_token}`
+- Query params: `startTime` (RFC 3339), `endTime` (RFC 3339)
+- Response: `{ "dataPoints": [{ "startTime": "...", "endTime": "...", "value": ... }] }`
+- Use `GoogleHealthAuthManager.shared.performAuthenticatedRequest()` for all calls
+
+**Exit criteria:** Sync button fetches real data from Google Health API and displays on dashboard.
+
+---
+
+### Phase 3: HealthKit Tagging Update
+
+**Goal:** HealthKit samples tagged as "Google Health" instead of "Fitbit".
+
+**Files:**
+
+| Action | File |
+|---|---|
+| Modify | `Services/HealthKitManager.swift` |
+
+**Tasks:**
+
+| Step | Task | Done |
+|---|---|---|
+| 3.1 | Update `metadata["SyncSource"]` from `"Fitbit"` to `"Google Health"` in all write methods | [ ] |
+| 3.2 | Update `deleteExistingSamples()` filter to match new metadata value | [ ] |
+
+**Exit criteria:** New samples tagged "Google Health". Old "Fitbit" samples left in place (user can delete manually if desired).
+
+---
+
+### Phase 4: UI Polish + Cleanup
+
+**Goal:** All UI references updated, no Fitbit branding remaining.
+
+**Files:**
+
+| Action | File |
+|---|---|
+| Modify | `Views/AccountView.swift` |
+| Modify | `README.md` |
+
+**Tasks:**
+
+| Step | Task | Done |
+|---|---|---|
+| 4.1 | Update `AccountView.swift` logout to use `GoogleHealthAuthManager` | [ ] |
+| 4.2 | Update `README.md` setup instructions for Google Cloud | [ ] |
+| 4.3 | Remove `Secrets.plist` Fitbit key references from code comments | [ ] |
+| 4.4 | Search codebase for any remaining "Fitbit" strings, update as needed | [ ] |
+
+**Exit criteria:** No Fitbit references remain. App is fully Google Health.
+
+---
+
+### Phase 5: Testing
+
+**Goal:** Verify everything works end-to-end.
+
+| Step | Task | Done |
+|---|---|---|
+| 5.1 | Google OAuth login succeeds | [ ] |
+| 5.2 | Tokens stored in Keychain | [ ] |
+| 5.3 | Token refresh works on expiry | [ ] |
+| 5.4 | Steps sync correctly | [ ] |
+| 5.5 | Heart rate sync correctly | [ ] |
+| 5.6 | Sleep sync correctly | [ ] |
+| 5.7 | Calories sync correctly | [ ] |
+| 5.8 | HealthKit samples tagged "Google Health" | [ ] |
+| 5.9 | Duplicate prevention works (delete-before-write) | [ ] |
+| 5.10 | Logout clears all tokens | [ ] |
+| 5.11 | App handles 401 with auto-refresh | [ ] |
+| 5.12 | App handles network errors gracefully | [ ] |
+
+---
+
+## File Summary
 
 ### Create (3)
 
-| File | Purpose |
-|---|---|
-| `Services/GoogleHealthAuthManager.swift` | Google OAuth 2.0 auth + token management |
-| `Services/GoogleHealthClient.swift` | Fetch health data from Google Health API |
-| `Models/HealthDataPoint.swift` | Data model for API response |
+| File | Phase | Purpose |
+|---|---|---|
+| `Services/GoogleHealthAuthManager.swift` | 1 | Google OAuth 2.0 auth + token management |
+| `Models/HealthDataPoint.swift` | 2 | Data model for API response |
+| `Services/GoogleHealthClient.swift` | 2 | Fetch health data from Google Health API |
 
-### Modify (5)
+### Modify (6)
 
-| File | Change |
-|---|---|
-| `States/AppState.swift` | `FitbitAuthManager` → `GoogleHealthAuthManager` |
-| `Controllers/SyncController.swift` | Fitbit API calls → `GoogleHealthClient` |
-| `Views/LoginView.swift` | "Sign in with Google" |
-| `Views/AccountView.swift` | Google logout |
-| `SyncMyFitApp.swift` | Google OAuth redirect handler |
+| File | Phase | Change |
+|---|---|---|
+| `States/AppState.swift` | 1 | `FitbitAuthManager` → `GoogleHealthAuthManager` |
+| `Views/LoginView.swift` | 1 | "Sign in with Google" |
+| `SyncMyFitApp.swift` | 1 | Google OAuth redirect handler |
+| `Controllers/SyncController.swift` | 2 | Fitbit API calls → `GoogleHealthClient` |
+| `Services/HealthKitManager.swift` | 3 | Metadata tagging update |
+| `Views/AccountView.swift` | 4 | Google logout |
 
 ### Delete (1)
 
-| File | Reason |
-|---|---|
-| `Services/FitbitAuthManager.swift` | Replaced by `GoogleHealthAuthManager` |
+| File | Phase | Reason |
+|---|---|---|
+| `Services/FitbitAuthManager.swift` | 1 | Replaced by `GoogleHealthAuthManager` |
 
-### Unchanged (4)
+### Unchanged (3)
 
 | File | Why |
 |---|---|
-| `Services/HealthKitManager.swift` | HK writes unchanged |
-| `Views/DashboardView.swift` | Grid UI unchanged (only data source swap) |
 | `Helpers/KeychainHelper.swift` | Reused as-is |
 | `Services/SyncStatusManager.swift` | Last-synced tracking unchanged |
+| `Views/DashboardView.swift` | Grid UI unchanged (data source swap handled in SyncController) |
 
 ---
 
@@ -252,20 +312,3 @@ These are NOT part of the minimal migration. Add later if desired:
 3. **Background refresh** - `BGTaskScheduler` for periodic sync
 4. **Multi-day batch** - Progress indicator for large date ranges
 5. **Workout sync** - Route data, energy, duration (complex)
-
----
-
-## Testing Checklist
-
-- [ ] Google OAuth login succeeds
-- [ ] Tokens stored in Keychain
-- [ ] Token refresh works on expiry
-- [ ] Steps sync correctly
-- [ ] Heart rate sync correctly
-- [ ] Sleep sync correctly
-- [ ] Calories sync correctly
-- [ ] HealthKit samples tagged correctly
-- [ ] Duplicate prevention works (delete-before-write)
-- [ ] Logout clears all tokens
-- [ ] App handles 401 with auto-refresh
-- [ ] App handles network errors gracefully
