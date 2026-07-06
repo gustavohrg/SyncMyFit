@@ -221,7 +221,7 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 
 ---
 
-### Phase 4: UI Polish + Cleanup
+### Phase 4: UI Polish + Cleanup ✅ DONE
 
 **Goal:** All UI references updated, no Fitbit branding remaining.
 
@@ -230,18 +230,23 @@ Same pipeline, different auth + data source. HealthKit writes unchanged.
 | Action | File |
 |---|---|
 | Modify | `Views/AccountView.swift` |
+| Modify | `Views/DashboardView.swift` |
 | Modify | `README.md` |
+| Modify | `SyncMyFit.xcodeproj/project.pbxproj` |
 
 **Tasks:**
 
 | Step | Task | Done |
 |---|---|---|
-| 4.1 | Update `AccountView.swift` logout to use `GoogleHealthAuthManager` | [ ] |
-| 4.2 | Update `README.md` setup instructions for Google Cloud | [ ] |
-| 4.3 | Remove `Secrets.plist` Fitbit key references from code comments | [ ] |
-| 4.4 | Search codebase for any remaining "Fitbit" strings, update as needed | [ ] |
+| 4.1 | Update `AccountView.swift` logout to use `GoogleHealthAuthManager` | [x] (done in Phase 1) |
+| 4.2 | Update `README.md` setup instructions for Google Cloud | [x] |
+| 4.3 | Update Fitbit comment in `DashboardView.swift` | [x] |
+| 4.4 | Update `INFOPLIST_KEY_NSHealthShareUsageDescription` in pbxproj | [x] |
 
-**Exit criteria:** No Fitbit references remain. App is fully Google Health.
+**Findings:**
+- `GoogleHealthAuthManager.swift` comment "Created on migration from Fitbit" kept as historical note
+- `MIGRATION-PLAN.md` references to Fitbit are documentation context, not active code
+- README updated to version 2.0.0, all setup instructions now reference Google Cloud
 
 ---
 

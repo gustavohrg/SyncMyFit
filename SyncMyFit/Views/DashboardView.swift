@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - DashboardView
 
-/// The main view that shows the user's synced Fitbit data and allows syncing to Apple Health.
+/// The main view that shows the user's synced health data and allows syncing to Apple Health.
 struct DashboardView: View {
 
     // MARK: - Environment & State

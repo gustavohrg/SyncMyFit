@@ -1,10 +1,10 @@
 # SyncMyFit
 
-A Swift-based iOS app that securely syncs Fitbit data to Apple Health, ensuring reliable tracking and full control over your health data.
+A Swift-based iOS app that syncs Google Health data to Apple Health, ensuring reliable tracking and full control over your health data.
 
 ## About the App
 
-**SyncMyFit** is a personal project developed to bridge the gap between Fitbit data and Apple Health. It syncs data like steps, heart rate, sleep, and calories directly from Fitbit’s API into Apple Health using a custom app identifier to track origin. While it's currently designed for personal use, future plans include advanced features like:
+**SyncMyFit** is a personal project developed to bridge the gap between Google Health (Fitbit/Pixel Watch) data and Apple Health. It syncs data like steps, heart rate, sleep, and calories from the Google Health API into Apple Health using a custom app identifier to track origin. While it's currently designed for personal use, future plans include advanced features like:
 
 - Auto Sync.
 - Scheduled Notifications.
@@ -21,7 +21,7 @@ A Swift-based iOS app that securely syncs Fitbit data to Apple Health, ensuring 
 
 ## Features
 
-- Log in via Fitbit OAuth.
+- Log in via Google OAuth 2.0.
 - Securely store tokens using Keychain.
 - Display last synced date and status.
 - Show animated dashboard with visual metrics.
@@ -32,27 +32,41 @@ A Swift-based iOS app that securely syncs Fitbit data to Apple Health, ensuring 
 - **SwiftUI**: Declarative UI framework.
 - **Combine**: Reactive framework for sync status and app state.
 - **HealthKit**: To write data into Apple Health.
-- **Fitbit Web API**: For fetching fitness data.
+- **Google Health API**: For fetching fitness data.
+- **Google People API**: For user profile display name.
 - **Keychain**: Secure credential storage.
 - **UserDefaults**: Persistent storage for sync timestamps.
 
 ## Setup Instructions
 
-If you'd like to run **SyncMyFit** with your own Fitbit Client ID:
+If you'd like to run **SyncMyFit** with your own Google Cloud credentials:
+
+### Prerequisites
+
+1. Create a [Google Cloud project](https://console.cloud.google.com/).
+2. Enable the **Google Health API** in the API Library.
+3. Create an **OAuth 2.0 Client ID** (type: Web Server).
+4. Set the redirect URI to your reversed bundle ID (e.g., `com.googleusercontent.apps.{your-client-id}`).
+5. Add your email as a test user in the [Audience](https://console.developers.google.com/auth/audience) page.
+6. Add the scope `https://www.googleapis.com/auth/googlehealth.activity_and_fitness` and `https://www.googleapis.com/auth/userinfo.profile` in the [Data Access](https://console.developers.google.com/auth/scopes) page.
+
+### Steps
 
 1. Clone the repository:
     ```bash
     git clone https://github.com/your-username/SyncMyFit.git
     ```
 
-2. Create a file called `Secrets.plist` at the project root level (`SyncMyFit/Secrets.plist`) with the following content:
+2. Create a file called `Secrets.plist` at `SyncMyFit/Secrets.plist` with the following content:
     ```xml
     <?xml version="1.0" encoding="UTF-8"?>
     <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
     <plist version="1.0">
     <dict>
-        <key>FitbitClientID</key>
-        <string>YOUR_CLIENT_ID_HERE</string>
+        <key>GoogleClientID</key>
+        <string>YOUR_CLIENT_ID.apps.googleusercontent.com</string>
+        <key>GoogleClientSecret</key>
+        <string>YOUR_CLIENT_SECRET</string>
     </dict>
     </plist>
     ```
@@ -61,9 +75,7 @@ If you'd like to run **SyncMyFit** with your own Fitbit Client ID:
     - `Secrets.plist` is added to your **main target membership**.
     - `Secrets.swift` (already present) is used to load this securely.
 
-4. Make sure you’ve configured your Fitbit Developer App’s **redirect URI** and whitelisted necessary scopes (`activity`, `heartrate`, `sleep`, etc.).
-
-5. Run the project on your iPhone (HealthKit requires a physical device).
+4. Run the project on your iPhone (HealthKit requires a physical device).
 
 ## App Demo
 
@@ -71,11 +83,11 @@ If you'd like to run **SyncMyFit** with your own Fitbit Client ID:
 
 ## Current Version
 
-**1.0.0** — First complete build, polished for personal use.
+**2.0.0** — Migrated to Google Health API.
 
 ## Disclaimer
 
-This app is developed for personal use and is not affiliated with Fitbit or Apple.
+This app is developed for personal use and is not affiliated with Google, Fitbit, or Apple.
 
 ## Developed By
 

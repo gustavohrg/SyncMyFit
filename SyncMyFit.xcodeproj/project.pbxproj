@@ -405,7 +405,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to sync with Fitbit.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to sync with Apple Health.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app writes your steps, heart rate, calories and sleep data to HealthKit to help you track your fitness.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -449,7 +449,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to sync with Fitbit.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "This app reads your health data to sync with Apple Health.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "This app writes your steps, heart rate, calories and sleep data to HealthKit to help you track your fitness.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
